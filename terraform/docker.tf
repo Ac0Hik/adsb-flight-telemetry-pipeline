@@ -4,6 +4,11 @@ terraform {
       source = "kreuzwerker/docker"
       version = "~> 3.9.0"
     }
+
+    databricks = {
+        source = "databricks/databricks"
+        version = "~> 1.38.0"
+    }
   }
 }
 

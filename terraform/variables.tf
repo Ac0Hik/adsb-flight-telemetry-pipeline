@@ -33,3 +33,30 @@ variable "fernet_key" {
     type        = string
     sensitive   = true
 }
+
+#databricks
+
+variable databricks_token  {
+    description = "access token for databricks with cluster, jobs and secrets scopes"
+    type = string
+    sensitive = true
+}
+
+variable "databricks_host" {
+  type        = string
+  description = "Databricks workspace URL (e.g., https://adb-1234567890.12.azuredatabricks.net)"
+}
+
+#opensky
+
+variable "opensky_user"{
+    type = string
+    description = "opensky username"
+    sensitive = true
+}
+
+variable "opensky_pass"{
+    type = string
+    description = "opensky password"
+    sensitive = true
+}
