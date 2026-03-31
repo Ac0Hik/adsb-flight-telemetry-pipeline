@@ -6,19 +6,16 @@ Built entirely on free infrastructure: Databricks Community Edition for Spark co
 
 ---
 
-## Infrastructure
+Infrastructure
+All infrastructure is managed as code via Terraform using two providers.
+Local — Docker (✅ complete)
+The full Airflow stack runs locally via Docker, provisioned entirely by Terraform:
 
-All infrastructure is managed as code via Terraform using two providers:
+Postgres — Airflow metadata database with a healthcheck (pg_isready) and a persistent volume so history survives restarts
+Airflow init — one-shot container that runs db migrate and creates the admin user, then exits
+Airflow webserver — UI accessible at http://localhost:8080
+Airflow scheduler — monitors and triggers DAG tasks
 
-**Docker provider** — provisions the full Airflow stack locally:
-- Postgres container as Airflow's metadata database
-- Airflow webserver, scheduler, and init containers
-- Docker network and volumes for DAGs, logs, and Postgres data
-- Credentials and config passed via Terraform variables — nothing hardcoded
-
-**Databricks provider** — provisions compute and jobs on Databricks Community Edition:
-- Single-node Spark 3.5 cluster with Delta Lake enabled and auto-termination after 60 minutes
-- Secret scope for OpenSky credentials
-- Job definitions for each Spark script, referencing the cluster and script paths on DBFS
-
-Running `terraform apply` spins everything up. `terraform destroy` tears it all down cleanly.
+All containers share a dedicated Docker network and communicate by container name. DAGs and logs are mounted as volumes so changes are reflected instantly without rebuilding.
+terraform apply spins the full stack up. terraform destroy tears it down cleanly.
+Cloud — Databricks (🔲 in progress)

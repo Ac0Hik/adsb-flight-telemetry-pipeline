@@ -3,41 +3,6 @@ provider "databricks" {
   token = var.databricks_token
 }
 
-data "databricks_node_type" "smallest" {
-  local_disk = true
-}
-
-data "databricks_spark_version" "latest_lts" {
-  long_term_support = true
-}
-
-resource "databricks_cluster" "cluster" {
-  cluster_name            = "single_cluster"
-  spark_version           = data.databricks_spark_version.latest_lts.id
-  node_type_id            = data.databricks_node_type.smallest.id
-  autotermination_minutes = 30 #constraints are 60 make sure it is set to 60 upon delivery
-  spark_conf              = { "spark.databricks.delta.preview.enabled" = "true"
-                              "spark.master"                            = "local[*]"
-                              "spark.databricks.cluster.profile"        = "singleNode" 
-  }
-
-  custom_tags = {
-  "ResourceClass" = "SingleNode"
-  }
-  num_workers = 0
-
-  library {
-      pypi {
-        package = "delta-spark"
-      }
-    }
-
-  library {
-      pypi {
-        package = "requests"
-      }
-    }
-}
 
 resource "databricks_secret_scope" "opensky"{
     name = "opensky"
@@ -65,17 +30,25 @@ locals {
   }
 }
 
-resource "databricks_job" "spark_jobs"{
-    for_each = local.spark_jobs
+resource "databricks_job" "spark_jobs" {
+  for_each = local.spark_jobs
 
-    name = each.key
-    task {
-       task_key = "${each.key}task"
-       existing_cluster_id = databricks_cluster.cluster.id
+  name = each.key
 
-        spark_python_task {
-            python_file = each.value
-        }
+  environment {
+    environment_key = "default"
+    spec {
+      client = "2"
+    }
+  }
+
+  task {
+    task_key = "${each.key}_task"
+
+    spark_python_task {
+      python_file = each.value
     }
 
+    environment_key = "default"
+  }
 }
