@@ -13,3 +13,6 @@ terraform/*.tfstate.backup
 
 *__pycache__/
 .pytest_cache
+
+#local data change free edition limitation
+data/

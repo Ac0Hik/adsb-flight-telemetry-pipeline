@@ -65,15 +65,15 @@ class OpenSkyClient():
             state_dict['origin_country'] = state[2]
             state_dict['time_position'] = state[3]
             state_dict['last_contact'] = state[4]
-            state_dict['longitude'] = state[5]
-            state_dict['latitude'] = state[6]
-            state_dict['baro_altitude'] = state[7]
+            state_dict['longitude'] = float(state[5]) if state[5] is not None else None
+            state_dict['latitude'] = float(state[6]) if state[6] is not None else None
+            state_dict['baro_altitude'] = float(state[7]) if state[7] is not None else None
             state_dict['on_ground'] = state[8]
-            state_dict['velocity'] = state[9]
-            state_dict['true_track'] = state[10]
-            state_dict['vertical_rate'] = state[11]
-            state_dict['sensors'] = state[12]
-            state_dict['geo_altitude'] = state[13]
+            state_dict['velocity'] = float(state[9]) if state[9] is not None else None
+            state_dict['true_track'] = float(state[10]) if state[10] is not None else None
+            state_dict['vertical_rate'] = float(state[11]) if state[11] is not None else None
+            state_dict['sensors'] = [int(state[12])] if state[12] is not None and not isinstance(state[12], list) else (state[12] if state[12] is None else [int(s) for s in state[12]])
+            state_dict['geo_altitude'] = float(state[13]) if state[13] is not None else None
             state_dict['squawk'] = state[14]
             state_dict['spi'] = state[15]
             state_dict['position_source'] = state[16]
@@ -82,7 +82,6 @@ class OpenSkyClient():
 
             state_dict['api_timestamp'] = time
             state_dict['ingested_at'] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
 
             parsed.append(state_dict)
 
