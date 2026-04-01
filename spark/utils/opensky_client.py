@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from time import sleep
 
-
+log = logging.getLogger(__name__)
 
 class OpenSkyClient():
     def __init__(self,username =None,password=None):
@@ -28,7 +28,7 @@ class OpenSkyClient():
                     f"{self.base_url}/states/all",
                     auth = (self.username, self.password) if self.username else None,
                     params=params,
-                    timeout=10
+                    timeout=30
             )
 
             # Raise error for bad HTTP status
@@ -37,11 +37,11 @@ class OpenSkyClient():
 
         except requests.exceptions.RequestException as e:
             logging.error(f"fetch_states failed: {e}")
-            return None
+            return {}
         except ValueError as e:
             # JSON decoding error
             logging.error(f"Invalid JSON response: {e}")
-            return None
+            return {}
         
     def parse_states(self, data=None):
         if data is None:
@@ -94,7 +94,3 @@ class OpenSkyClient():
             parsed = self.parse_states(data=raw)
             yield parsed
             sleep(interval_seconds)
-
-
-
-        
