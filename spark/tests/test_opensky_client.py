@@ -3,6 +3,18 @@ from unittest.mock import patch, MagicMock
 from spark.utils.opensky_client import OpenSkyClient
 
 
+def test_fetch_states_no_credentials():
+    with patch("spark.utils.opensky_client.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(
+            json=lambda: {"time": 123, "states": []},
+            raise_for_status=lambda: None
+        )
+
+        client = OpenSkyClient()
+        client.fetch_states()
+
+        _, kwargs = mock_get.call_args
+        assert kwargs.get("auth") is None
 
 @patch("spark.utils.opensky_client.requests.get")
 def test_fetch_states_success(mock_get):
