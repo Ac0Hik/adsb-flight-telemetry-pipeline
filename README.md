@@ -19,9 +19,8 @@ All infrastructure is managed as code via Terraform using two providers.
 **Databricks provider** — provisions storage and jobs on Databricks Free Edition:
 - Secret scope for OpenSky credentials — never hardcoded
 - 4 serverless job definitions for each Spark script
-- Delta tables stored on DBFS, dbt models served via the serverless SQL warehouse
+- Delta tables stored in Databricks Volumes, dbt models served via the serverless SQL warehouse
 
-Spark jobs run locally in `local[*]` mode and write directly to DBFS.
 
 `terraform apply` spins everything up. `terraform destroy` tears it all down cleanly.
 
@@ -44,6 +43,9 @@ Supports authenticated requests (4,000 calls/day) and anonymous fallback (400/da
 - Checkpoint location ensures the job recovers from failures without duplicate records
 - Produces ~11,000 aircraft position records per batch (European airspace)
  
-Delta table written to `data/delta/bronze/live_states`.
+Delta table written to `data/delta/bronze/live_states` then uploaded to Databricks Volumes:
+```bash
+databricks fs cp -r "data/delta/bronze/live_states" "dbfs:/Volumes/workspace/default/adsb_data/bronze/live_states" --overwrite
+```
  
-> **Note:** The pipeline runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
+> **Note:** Part of the pipeline [stream_ingest] runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
