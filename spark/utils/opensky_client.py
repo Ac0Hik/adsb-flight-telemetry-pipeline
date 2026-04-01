@@ -1,9 +1,8 @@
 #this my version of the openskyclient api (you could use the public api https://openskynetwork.github.io/opensky-api/)
 import requests
 import logging
-import os
-from dotenv import load_dotenv
 from datetime import datetime, timezone
+from time import sleep
 
 
 
@@ -27,7 +26,7 @@ class OpenSkyClient():
                 params["lomax"] = lomax
             response = requests.get(
                     f"{self.base_url}/states/all",
-                    auth = (self.username, self.password),
+                    auth = (self.username, self.password) if self.username else None,
                     params=params,
                     timeout=10
             )
@@ -57,6 +56,7 @@ class OpenSkyClient():
         for state in states:
             #skip responses that don't have all the fields
             if len(state) < 18:
+                logging.warning(f"Skipping state with insufficient fields: {len(state)}")
                 continue
 
             state_dict = {}
@@ -87,20 +87,13 @@ class OpenSkyClient():
             parsed.append(state_dict)
 
         return parsed
-
-
-
-load_dotenv()
-
-opensky_user = os.getenv('OPENSKY_USER') if os.getenv('OPENSKY_USER') else None
-opensky_pass = os.getenv('OPENSKY_PASS') if os.getenv('OPENSKY_PASS') else None
-
-client = OpenSkyClient(username = opensky_user, password = opensky_pass)
-
-res = client.fetch_states()
-tada = client.parse_states(res)
-print(tada[0])
-
+    
+    def poll_forever(self, interval_seconds=10, lamin=None, lamax=None, lomin=None, lomax=None):
+        while True:
+            raw  = self.fetch_states(lamin=lamin, lamax=lamax, lomin=lomin, lomax=lomax)
+            parsed = self.parse_states(data=raw)
+            yield parsed
+            sleep(interval_seconds)
 
 
 
