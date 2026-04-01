@@ -33,3 +33,17 @@ parse_states() — maps raw state vectors to typed dicts with named fields, stri
 poll_forever() — generator that yields parsed batches on a configurable interval
 
 Supports authenticated requests (4,000 calls/day) and anonymous fallback (400/day).
+
+## Streaming Ingestion
+ 
+**PySpark Structured Streaming** (`spark/jobs/01_stream_ingest.py`) — continuously polls the OpenSky API every 60 seconds and writes raw ADS-B state vectors to a local Delta table.
+ 
+- Rate source trigger fires every 60 seconds, calling `foreachBatch` to fetch and ingest live data
+- Full schema explicitly defined (check the the official docs)
+- Partitioned by `ingest_date` and `ingest_hour` for efficient downstream querying
+- Checkpoint location ensures the job recovers from failures without duplicate records
+- Produces ~11,000 aircraft position records per batch (European airspace)
+ 
+Delta table written to `data/delta/bronze/live_states`.
+ 
+> **Note:** The pipeline runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
