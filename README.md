@@ -24,3 +24,12 @@ All infrastructure is managed as code via Terraform using two providers.
 Spark jobs run locally in `local[*]` mode and write directly to DBFS.
 
 `terraform apply` spins everything up. `terraform destroy` tears it all down cleanly.
+
+Data Ingestion
+OpenSky API client (spark/utils/opensky_client.py) — a lightweight wrapper around the OpenSky REST API:
+
+fetch_states() — polls https://opensky-network.org/api/states/all with optional bounding box, handles errors gracefully
+parse_states() — maps raw state vectors to typed dicts with named fields, strips callsign whitespace, adds ingested_at UTC timestamp
+poll_forever() — generator that yields parsed batches on a configurable interval
+
+Supports authenticated requests (4,000 calls/day) and anonymous fallback (400/day).
