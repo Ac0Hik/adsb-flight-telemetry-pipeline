@@ -48,3 +48,18 @@ databricks fs cp -r "data/delta/bronze/live_states" "dbfs:/Volumes/workspace/def
 ```
  
 > **Note:** Part of the pipeline [stream_ingest] runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
+
+## Silver Layer
+
+**Flight reconstruction** (`spark/notebooks/03_silver_flights.ipynb`) — runs on Databricks, reads bronze Delta table from Volumes and reconstructs logical flights from raw ADS-B snapshots.
+
+- Deduplicates on `(icao24, api_timestamp)` and drops null coordinates
+- Detects flight segments using window functions — new flight on takeoff or signal gap > 600 seconds
+- Aggregates to one row per flight with departure/arrival timestamps, altitude, speed, and position metrics
+- Applies geo UDFs to identify origin/destination airports and estimate flight distance
+- Filters noise — flights shorter than 5 minutes or fewer than 10 state reports excluded
+- Writes to silver Volumes via Delta MERGE — idempotent, safe to re-run
+
+Silver table written to `/Volumes/workspace/default/adsb_data/silver/flights`.
+
+> See `spark/NOTES.md` for known limitations and future improvements.
