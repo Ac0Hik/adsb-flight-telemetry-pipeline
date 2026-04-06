@@ -63,3 +63,23 @@ databricks fs cp -r "data/delta/bronze/live_states" "dbfs:/Volumes/workspace/def
 Silver table written to `/Volumes/workspace/default/adsb_data/silver/flights`.
 
 > See `spark/NOTES.md` for known limitations and future improvements.
+
+## Anomaly Detection
+
+Anomaly detection is the process of identifying aircraft behaviour that deviates from what is expected during normal flight operations. In aviation, anomalies can indicate emergencies, equipment failures, or safety-critical situations that require immediate attention from air traffic control.
+
+**Anomaly detection** (`spark/notebooks/04_anomaly_detect.ipynb`) — runs on Databricks, reads bronze Delta table from Volumes and applies 5 detection rules across all state vectors.
+
+| Rule | Trigger | Severity |
+|---|---|---|
+| `EMERGENCY_SQUAWK` | Transponder code 7700 (emergency), 7600 (radio failure), or 7500 (hijack) | CRITICAL |
+| `RAPID_ALTITUDE_DROP` | Altitude drops > 500m between consecutive states while airborne above 1000m | HIGH |
+| `EXTREME_VERTICAL_RATE` | Climb/descent rate exceeds 25 m/s while airborne | CRITICAL if > 40 m/s, else HIGH |
+| `UNUSUAL_SPEED` | Velocity > 350 m/s, or velocity < 50 m/s at altitude > 6000m while airborne | MEDIUM |
+| `SIGNAL_GAP` | Same aircraft reappears after a 5–60 minute gap while still airborne | MEDIUM |
+
+Each detected event is written as a row with the aircraft state, anomaly type, severity, and a human-readable description of the event.
+
+Anomaly table written to `/Volumes/workspace/default/adsb_data/silver/anomalies`.
+
+---
