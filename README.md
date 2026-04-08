@@ -78,3 +78,13 @@ Silver table written to `/Volumes/workspace/default/adsb_data/silver/flights`.
 Each detected event is written as a row with the aircraft state, anomaly type, severity, and a human-readable description of the event.
 
 Anomaly table written to `/Volumes/workspace/default/adsb_data/silver/anomalies`.
+
+## Gold Layer
+
+**Gold aggregates** (`spark/notebooks/05_gold_aggregates.ipynb`) — runs on Databricks, reads silver flights and bronze states to build three business-ready analytics tables.
+
+- `daily_airport_stats` — one row per airport per day with departures, arrivals, total movements, average flight duration, distance, cruise altitude, speed, and unique aircraft count
+- `carrier_performance` — one row per carrier per day with flight count, average metrics, and an efficiency score. Only carriers with 3+ flights on that day are included. Carrier code extracted from the first 3 characters of the callsign
+- `airspace_congestion` — one row per 1-degree lat/lon grid cell per hour with unique aircraft count, average altitude, average speed, and congestion level (HIGH > 50 aircraft, MEDIUM > 20, LOW otherwise). 
+
+Gold tables written to `/Volumes/workspace/default/adsb_data/gold/`.
