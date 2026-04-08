@@ -25,9 +25,9 @@ resource "docker_volume" "postgres_data" {
   name = "postgres_data"
 }
 
-resource "docker_volume" "airflow_dags" {
-  name = "airflow_dags"
-}
+# resource "docker_volume" "airflow_dags" {
+#   name = "airflow_dags"
+# }
 
 resource "docker_volume" "airflow_logs" {
   name = "airflow_logs"
@@ -65,10 +65,14 @@ resource "docker_container" "airflow_init"{
     name  = "airflow_init"
     image = "apache/airflow:2.9.0" 
 
-    command = ["bash", "-c", "airflow db migrate && airflow users create --username ${var.airflow_admin_username} --password ${var.airflow_admin_password} --firstname Admin --lastname User --role Admin --email admin@example.com"]
+    command = ["bash", "-c", "pip install deltalake==0.17.4 apache-airflow-providers-databricks==6.2.0 && airflow db migrate && airflow users create --username ${var.airflow_admin_username} --password ${var.airflow_admin_password} --firstname Admin --lastname User --role Admin --email admin@adbs.com"]
     restart = "no"
     networks_advanced {
       name = docker_network.airflow_network.name
+    }
+    volumes {
+      host_path      = "D:/ADS-B Flight Telemetry Pipeline/adsb-pipeline/airflow/dags"
+      container_path = "/opt/airflow/dags"
     }
     env = [
       "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${var.postgres_username}:${var.postgres_password}@adsb_postgres:5432/${var.postgres_db_name}"
@@ -92,7 +96,8 @@ resource "docker_container" "airflow_webserver" {
       name = docker_network.airflow_network.name
     }
     volumes {
-      volume_name = docker_volume.airflow_dags.name
+      # volume_name = docker_volume.airflow_dags.name
+      host_path  = "D:/ADS-B Flight Telemetry Pipeline/adsb-pipeline/airflow/dags"
       container_path = "/opt/airflow/dags"
     }
     volumes {
@@ -103,7 +108,7 @@ resource "docker_container" "airflow_webserver" {
     env = [
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${var.postgres_username}:${var.postgres_password}@adsb_postgres:5432/${var.postgres_db_name}",
         "AIRFLOW__CORE__FERNET_KEY=${var.fernet_key}",
-
+        "_PIP_ADDITIONAL_REQUIREMENTS=deltalake==0.17.4 apache-airflow-providers-databricks==6.2.0",
         # "_AIRFLOW_WWW_USER_USERNAME=${var.airflow_admin_username}",
         # "_AIRFLOW_WWW_USER_PASSWORD=${var.airflow_admin_password}",
         # "_AIRFLOW_WWW_USER_CREATE=true",
@@ -125,7 +130,8 @@ resource "docker_container" "airflow_scheduler" {
       name = docker_network.airflow_network.name
     }
     volumes {
-      volume_name = docker_volume.airflow_dags.name
+      # volume_name = docker_volume.airflow_dags.name
+      host_path   = "D:/ADS-B Flight Telemetry Pipeline/adsb-pipeline/airflow/dags"
       container_path = "/opt/airflow/dags"
     }
     volumes {
@@ -135,7 +141,7 @@ resource "docker_container" "airflow_scheduler" {
     env = [
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${var.postgres_username}:${var.postgres_password}@adsb_postgres:5432/${var.postgres_db_name}",
         "AIRFLOW__CORE__FERNET_KEY=${var.fernet_key}",
-
+        "_PIP_ADDITIONAL_REQUIREMENTS=deltalake==0.17.4 apache-airflow-providers-databricks==6.2.0",
         # "_AIRFLOW_WWW_USER_USERNAME=${var.airflow_admin_username}",
         # "_AIRFLOW_WWW_USER_PASSWORD=${var.airflow_admin_password}",
         # "_AIRFLOW_WWW_USER_CREATE=true",
