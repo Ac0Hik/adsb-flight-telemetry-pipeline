@@ -58,6 +58,11 @@ variable "databricks_sql_http_path" {
   sensitive   = true
 }
 
+variable "databricks_workspace_user_path" {
+  description = "Databricks workspace user path"
+  type        = string
+}
+
 
 #opensky
 
