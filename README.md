@@ -88,3 +88,19 @@ Anomaly table written to `/Volumes/workspace/default/adsb_data/silver/anomalies`
 - `airspace_congestion` — one row per 1-degree lat/lon grid cell per hour with unique aircraft count, average altitude, average speed, and congestion level (HIGH > 50 aircraft, MEDIUM > 20, LOW otherwise). 
 
 Gold tables written to `/Volumes/workspace/default/adsb_data/gold/`.
+
+## Orchestration
+
+All pipeline orchestration is managed by Apache Airflow 2.9 running locally via Docker. Two DAGs coordinate the full pipeline.
+
+**`adsb_streaming_monitor`** — runs every 10 minutes. Queries the bronze Delta table on Databricks Volumes to check if the last ingested record is within the last 5 minutes. Branches to `stream_ok` if healthy, or `restart_stream` if stalled. Currently logs a warning on stall — auto-restart is a known limitation documented in `airflow/NOTES.md`.
+
+**`adsb_nightly_batch`** — runs at 2am UTC daily. Orchestrates the full batch pipeline in sequence:
+- Validates today's bronze partition has sufficient data (>10,000 rows)
+- Triggers silver flight reconstruction notebook on Databricks and waits for completion
+- Triggers anomaly detection notebook on Databricks and waits for completion  
+- Triggers gold aggregates notebook on Databricks and waits for completion
+- dbt models — placeholder, to be implemented
+- Vacuums bronze, silver/flights and silver/anomalies Delta tables with 168 hour retention
+
+All Databricks job IDs and connection credentials are injected via Terraform — nothing hardcoded in the DAG code.
