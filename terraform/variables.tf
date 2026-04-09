@@ -47,6 +47,18 @@ variable "databricks_host" {
   description = "Databricks workspace URL (e.g., https://adb-1234567890.12.azuredatabricks.net)"
 }
 
+variable "databricks_airflow_host" {
+  type        = string
+  description = "Databricks workspace URL (e.g., adb-1234567890.cloud.databricks.com)"
+}
+
+variable "databricks_sql_http_path" {
+  description = "HTTP path for Databricks SQL warehouse"
+  type        = string
+  sensitive   = true
+}
+
+
 #opensky
 
 variable "opensky_user"{

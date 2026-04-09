@@ -108,6 +108,8 @@ resource "docker_container" "airflow_webserver" {
     env = [
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${var.postgres_username}:${var.postgres_password}@adsb_postgres:5432/${var.postgres_db_name}",
         "AIRFLOW__CORE__FERNET_KEY=${var.fernet_key}",
+        "AIRFLOW_CONN_DATABRICKS_DEFAULT=databricks://:${var.databricks_token}@${var.databricks_airflow_host}",
+        "AIRFLOW_CONN_DATABRICKS_SQL_DEFAULT=databricks://:${var.databricks_token}@${var.databricks_airflow_host}?http_path=${var.databricks_sql_http_path}",
         "_PIP_ADDITIONAL_REQUIREMENTS=deltalake==0.17.4 apache-airflow-providers-databricks==6.2.0",
         # "_AIRFLOW_WWW_USER_USERNAME=${var.airflow_admin_username}",
         # "_AIRFLOW_WWW_USER_PASSWORD=${var.airflow_admin_password}",
@@ -141,6 +143,8 @@ resource "docker_container" "airflow_scheduler" {
     env = [
         "AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${var.postgres_username}:${var.postgres_password}@adsb_postgres:5432/${var.postgres_db_name}",
         "AIRFLOW__CORE__FERNET_KEY=${var.fernet_key}",
+        "AIRFLOW_CONN_DATABRICKS_DEFAULT=databricks://:${var.databricks_token}@${var.databricks_airflow_host}",
+        "AIRFLOW_CONN_DATABRICKS_SQL_DEFAULT=databricks://:${var.databricks_token}@${var.databricks_airflow_host}?http_path=${var.databricks_sql_http_path}",        
         "_PIP_ADDITIONAL_REQUIREMENTS=deltalake==0.17.4 apache-airflow-providers-databricks==6.2.0",
         # "_AIRFLOW_WWW_USER_USERNAME=${var.airflow_admin_username}",
         # "_AIRFLOW_WWW_USER_PASSWORD=${var.airflow_admin_password}",
