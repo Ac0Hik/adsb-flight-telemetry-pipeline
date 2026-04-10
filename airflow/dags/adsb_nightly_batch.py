@@ -27,12 +27,12 @@ def adsb_nightly_batch():
 
         log = logging.getLogger(__name__)
         #threshold is set to 0 for testing 10k for prod
-        ROW_COUNT_THRESHOLD = 0#10000
+        ROW_COUNT_THRESHOLD = 10000
 
         BRONZE_PATH = "/Volumes/workspace/default/adsb_data/bronze"
         query = f'''SELECT count(*) as rows_count 
                     FROM delta.`{BRONZE_PATH}/live_states` 
-                    WHERE ingest_date = current_date()'''
+                    WHERE ingest_date = current_date() - INTERVAL 1 DAY'''
         try:
             hook = DatabricksSqlHook(databricks_conn_id='databricks_sql_default')
             result = hook.get_records(query)

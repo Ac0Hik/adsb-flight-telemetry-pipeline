@@ -33,7 +33,7 @@ def adsb_streaming_monitor():
         log = logging.getLogger(__name__)
 
         BRONZE_PATH = "/Volumes/workspace/default/adsb_data/bronze/live_states"
-        TASK_TIMEOUT = 999999999 #300
+        TASK_TIMEOUT = 300 #999999999
         query = f"SELECT MAX(ingested_at) as last_ingested FROM delta.`{BRONZE_PATH}`"
         try:
 
