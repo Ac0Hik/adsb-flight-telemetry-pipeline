@@ -60,7 +60,7 @@ databricks fs cp -r "data/delta/bronze/live_states" "dbfs:/Volumes/workspace/def
 - Filters noise — flights shorter than 5 minutes or fewer than 10 state reports excluded
 - Writes to silver Volumes via Delta MERGE — idempotent, safe to re-run
 
-Silver table written to `/Volumes/workspace/default/adsb_data/silver/flights`.
+Silver table registered as `workspace.default.silver_flights`.
 
 > See `spark/NOTES.md` for known limitations and future improvements.
 
@@ -77,7 +77,7 @@ Silver table written to `/Volumes/workspace/default/adsb_data/silver/flights`.
 
 Each detected event is written as a row with the aircraft state, anomaly type, severity, and a human-readable description of the event.
 
-Anomaly table written to `/Volumes/workspace/default/adsb_data/silver/anomalies`.
+Anomaly table registered as `workspace.default.silver_anomalies`.
 
 ## Gold Layer
 
@@ -87,7 +87,7 @@ Anomaly table written to `/Volumes/workspace/default/adsb_data/silver/anomalies`
 - `carrier_performance` — one row per carrier per day with flight count, average metrics, and an efficiency score. Only carriers with 3+ flights on that day are included. Carrier code extracted from the first 3 characters of the callsign
 - `airspace_congestion` — one row per 1-degree lat/lon grid cell per hour with unique aircraft count, average altitude, average speed, and congestion level (HIGH > 50 aircraft, MEDIUM > 20, LOW otherwise). 
 
-Gold tables written to `/Volumes/workspace/default/adsb_data/gold/`.
+Gold tables registered as `workspace.default.daily_airport_stats`, `workspace.default.carrier_performance` and `workspace.default.airspace_congestion`.
 
 ## Orchestration
 
