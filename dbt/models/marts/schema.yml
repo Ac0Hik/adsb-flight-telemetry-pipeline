@@ -1,0 +1,33 @@
+# dbt/models/marts/schema.yml
+version: 2
+
+models:
+  - name: fct_airport_daily
+    description: "Daily airport statistics with rolling averages"
+    columns:
+      - name: flight_date
+        tests:
+          - not_null
+      - name: airport_icao
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - airport_icao
+              - flight_date
+
+  - name: fct_anomaly_summary
+    description: "Daily anomaly summary by type and severity with critical alert flagging"
+    columns:
+      - name: detection_date 
+        tests:
+          - not_null
+      - name: anomaly_type
+        tests:
+          - not_null
+      - name: anomaly_severity 
+        tests:
+          - accepted_values:
+                  values: ['CRITICAL', 'HIGH', 'MEDIUM']

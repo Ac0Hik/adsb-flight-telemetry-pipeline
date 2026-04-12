@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: gold
+    catalog: workspace
+    schema: default
+    tables:
+      - name: daily_airport_stats
+      - name: carrier_performance
+      - name: airspace_congestion
+
+  - name: silver
+    catalog: workspace
+    schema: default
+    tables:
+      - name: silver_anomalies
