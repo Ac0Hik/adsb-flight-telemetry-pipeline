@@ -104,3 +104,13 @@ All pipeline orchestration is managed by Apache Airflow 2.9 running locally via 
 - Vacuums bronze, silver/flights and silver/anomalies Delta tables with 168 hour retention
 
 All Databricks job IDs and connection credentials are injected via Terraform — nothing hardcoded in the DAG code.
+
+## Serving Layer
+
+**dbt** (`dbt/models/marts/`) — runs on the Databricks SQL warehouse, reads from gold and silver Unity Catalog tables and exposes two business-ready models tagged `adsb`.
+
+- `fct_airport_daily` — extends `daily_airport_stats` with a 7-day rolling average of total movements and a day-over-day change metric.
+- `fct_anomaly_summary` — aggregates `silver_anomalies` by detection date, anomaly type, and severity. Adds a `high_alert_day` flag — true if any CRITICAL anomaly was detected that day
+
+Run models: `dbt run --select tag:adsb`
+Run tests: `dbt test --select tag:adsb`
