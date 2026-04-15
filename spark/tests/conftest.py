@@ -63,12 +63,6 @@ def apply_segmentation(spark, expected_schema):
         return df
     return _apply
 
-
-
-
-
-
-
 @pytest.fixture(scope="session")
 def spark():
     builder = (
