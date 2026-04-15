@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+
+  spark-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run : pip install -r requirements.txt
+      
+      - name: run tests
+        run : pytest spark/tests/ --cov=spark --cov-report=term-missing --cov-fail-under=70
+
+        
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ruff
+        run : pip install ruff
+      
+      - name: run checks
+        run : ruff check spark/
+        
+  dbt-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          
+      - name: Install dbt-databricks
+        run : pip install dbt-databricks==1.11.6
+
+      - name: Create dbt profiles.yml
+        run: |
+          mkdir -p ~/.dbt
+          echo "${{ secrets.DBT_PROFILES_YML }}" > ~/.dbt/profiles.yml
+
+      - name: Parse dbt
+        run: dbt parse
+        working-directory: dbt/
+        
+  terraform-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+      
+      - name: setup terraform
+        run: terraform init -backend=false && terraform validate
+        working-directory: terraform/ 
+
+

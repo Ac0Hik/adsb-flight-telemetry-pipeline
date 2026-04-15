@@ -23,7 +23,6 @@ def test_haversine_none_return():
 
     assert expected == d
 
-
 def test_nearest_airport_none_input():
 
     RAK_lat, RAK_lon = 31.6069, -8.0363

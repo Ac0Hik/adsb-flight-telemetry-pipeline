@@ -28,7 +28,6 @@ def test_fetch_states_success(mock_get):
 
     assert result == {"time": 123, "states": []}
 
-
 @patch("spark.utils.opensky_client.requests.get")
 def test_fetch_states_failure(mock_get):
     mock_get.side_effect = requests.exceptions.RequestException()
@@ -37,7 +36,6 @@ def test_fetch_states_failure(mock_get):
     result = client.fetch_states()
 
     assert result == {}
-
 
 def test_parse_states_returns_correct_fields():
     fake_state = [
@@ -78,7 +76,6 @@ def test_parse_states_empty_states():
     result = client.parse_states(fake_response)
 
     assert result == []
-
 
 def test_poll_forever_yields_batches():
     fake_state = [

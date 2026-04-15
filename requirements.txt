@@ -1,0 +1,6 @@
+pyspark==3.5.0
+delta-spark==3.2.0
+pytest==9.0.2
+pytest-cov==7.1.0
+ruff==0.15.10
+dbt-databricks == 1.11.6

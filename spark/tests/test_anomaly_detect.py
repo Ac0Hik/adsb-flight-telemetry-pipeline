@@ -53,8 +53,6 @@ def test_rapid_altitude_drop(spark, expected_schema):
     assert rapid_altitude_drop_df.first()['anomaly_type'] == 'RAPID_ALTITUDE_DROP'
 
 
-
-
 def test_extreme_vertical_rate(spark, expected_schema):
 
     test_data = [    
@@ -129,7 +127,6 @@ def test_unusual_speed(spark, expected_schema):
                                             )
                         )
     assert df.count() == 2
-
 
 
 def test_signal_gap(spark, expected_schema):
