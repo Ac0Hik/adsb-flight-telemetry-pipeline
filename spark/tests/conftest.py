@@ -9,7 +9,7 @@ from pyspark.sql.types import (
     IntegerType, ArrayType, DateType
 )
 from pyspark.sql.window import Window
-from pyspark.sql.functions import lag, col, when, concat, lit, count
+from pyspark.sql.functions import lag, col, when, concat, lit
 from pyspark.sql.functions import  sum as spark_sum
 
 @pytest.fixture(scope="session")
@@ -53,7 +53,7 @@ def apply_segmentation(spark, expected_schema):
         # compute_flight_segments(df, window_spec) 
         df = df.withColumn("is_new_flight", 
                            when(col("prev_api_timestamp").isNull(), True) #prev_api_timestamp first record of the flight 
-                           .when((col("on_ground") == False) & (col("prev_onground") == True) , True) #takeoff 
+                           .when((~col("on_ground")) & (col("prev_onground")) , True) #takeoff 
                            .when(col("api_timestamp") - col("prev_api_timestamp") > 600, True).otherwise(False)) 
         
         # compute_flight_id(df)

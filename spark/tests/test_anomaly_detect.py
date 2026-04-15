@@ -1,5 +1,5 @@
 from datetime import date
-from pyspark.sql.functions import col,concat, lag, count, first, min, max, from_unixtime, to_date, current_timestamp, lit,when, abs as abs_spark
+from pyspark.sql.functions import col,concat, lag, to_date, current_timestamp, lit,when, abs as abs_spark
 from pyspark.sql.window import Window
 
 
@@ -37,7 +37,7 @@ def test_rapid_altitude_drop(spark, expected_schema):
     BARO_ALTITUDE_DROP_THRESHOLD = -500
     MIN_ARIBORN_BARO_ALTITUDE = 1000
     rapid_altitude_drop_df = rapid_altitude_drop_df.filter( (col("baro_altitude") - col("prev_baro_altitude") < BARO_ALTITUDE_DROP_THRESHOLD) &
-                                                           ( col("on_ground") == False) &
+                                                           ( ~col("on_ground")) &
                                                            ( col("baro_altitude") > MIN_ARIBORN_BARO_ALTITUDE) )\
             .withColumn("anomaly_type", lit("RAPID_ALTITUDE_DROP")) \
             .withColumn("anomaly_severity", lit("HIGH")) \

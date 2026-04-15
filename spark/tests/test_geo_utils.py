@@ -14,7 +14,7 @@ def test_haversine_distance_py():
 
 def test_haversine_none_return():
     """returns None when any input is None"""
-    CDG_lat, CDG_lon = 49.0097, 2.5478
+    CDG_lon =  2.5478
     Heathrow_lat, Heathrow_lon = 51.4775, -0.4614
 
     d = haversine_distance_py(None, CDG_lon, Heathrow_lat, Heathrow_lon)
@@ -25,7 +25,7 @@ def test_haversine_none_return():
 
 def test_nearest_airport_none_input():
 
-    RAK_lat, RAK_lon = 31.6069, -8.0363
+    RAK_lat = 31.6069
 
     airport = nearest_airport_py(RAK_lat, None)
 

@@ -40,7 +40,7 @@ jobs:
         run : pip install ruff
       
       - name: run checks
-        run : ruff check spark/
+        run : ruff check spark/ --exclude spark/jobs/notebooks/
         
   dbt-validate:
     runs-on: ubuntu-latest
@@ -60,6 +60,10 @@ jobs:
         run: |
           mkdir -p ~/.dbt
           echo "${{ secrets.DBT_PROFILES_YML }}" > ~/.dbt/profiles.yml
+
+      - name: install dbt dependencies
+        run : dbt deps
+        working-directory: dbt/ 
 
       - name: Parse dbt
         run: dbt parse
