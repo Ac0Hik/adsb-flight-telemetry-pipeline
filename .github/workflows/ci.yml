@@ -40,7 +40,7 @@ jobs:
         run : pip install ruff
       
       - name: run checks
-        run : ruff check spark/ --exclude spark/jobs/notebooks/
+        run : ruff check spark/
         
   dbt-validate:
     runs-on: ubuntu-latest
