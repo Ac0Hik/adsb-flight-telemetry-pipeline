@@ -1,0 +1,81 @@
+# api logic to connect docker containers with local machine (as advised in airflow/NOTES.md)
+from fastapi import FastAPI, HTTPException
+import subprocess
+import logging
+
+
+log = logging.getLogger(__name__)
+app = FastAPI()
+
+@app.get("/health")
+def check_health():
+    return {
+        "status": "ok"
+    }
+
+
+@app.post("/run-dbt")
+def run_dbt():
+    dbt_run_result = subprocess.run(
+        ["dbt", "run", "--select", "tag:adsb"], 
+        cwd="dbt/",  
+        capture_output=True,  
+        text=True 
+    )
+    if dbt_run_result.returncode != 0:
+        raise HTTPException(status_code=500, detail={
+            "stdout": dbt_run_result.stdout,
+            "stderr": dbt_run_result.stderr,
+            "exit_code": dbt_run_result.returncode
+        })
+    
+    return {
+        "stdout": dbt_run_result.stdout,
+        "stderr": dbt_run_result.stderr,
+        "exit_code": dbt_run_result.returncode
+    }
+
+@app.post("/test-dbt")
+def test_dbt():
+    dbt_test_result = subprocess.run(
+            ["dbt", "test", "--select", "tag:adsb"],  
+            cwd="dbt/", 
+            capture_output=True,  
+            text=True
+        )
+    
+    if dbt_test_result.returncode != 0:
+        raise HTTPException(status_code=500, detail={                
+            "stdout": dbt_test_result.stdout,
+            "stderr": dbt_test_result.stderr,
+            "exit_code": dbt_test_result.returncode
+        })
+    return {
+        "stdout": dbt_test_result.stdout,
+        "stderr": dbt_test_result.stderr,
+        "exit_code": dbt_test_result.returncode
+    }
+
+@app.post("/upload-bronze")
+def upload_bronze():
+    LOCAL_BRONZE_DATA = "data/delta/bronze/live_states"
+    CLOUD_BRONZE_LOCATION = "dbfs:/Volumes/workspace/default/adsb_data/bronze/live_states"
+
+    upload_result = subprocess.run(
+            ["databricks", "fs","cp", "-r", LOCAL_BRONZE_DATA, CLOUD_BRONZE_LOCATION,"--overwrite"],   
+            capture_output=True,  
+            text=True 
+        )
+    
+    if upload_result.returncode != 0:
+        raise HTTPException(status_code=500,detail={                
+            "stdout": upload_result.stdout,
+            "stderr": upload_result.stderr,
+            "exit_code": upload_result.returncode
+        })
+    return {"status" : "ok"}
+ 
+@app.post("/restart-stream")
+def restart_stream():
+    log.warning("restart_stream called but not yet implemented")
+    return {"status": "not implemented", "message": "See airflow/NOTES.md"}

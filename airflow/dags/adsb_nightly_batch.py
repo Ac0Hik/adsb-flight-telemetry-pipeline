@@ -1,6 +1,7 @@
 from airflow.decorators import dag, task
 from datetime import datetime, timedelta
 
+
 default_args  = {
     "depends_on_past": False,
     "retries": 2,
@@ -27,7 +28,7 @@ def adsb_nightly_batch():
 
         log = logging.getLogger(__name__)
         #threshold is set to 0 for testing 10k for prod
-        ROW_COUNT_THRESHOLD = 10000
+        ROW_COUNT_THRESHOLD = 0 #10000
 
         BRONZE_PATH = "/Volumes/workspace/default/adsb_data/bronze"
         query = f'''SELECT count(*) as rows_count 
@@ -71,23 +72,26 @@ def adsb_nightly_batch():
         job_id=Variable.get('databricks_job_gold_aggregates')
     )
 
-    #TO DO
-    @task
-    def run_dbt():
-        import logging
+    RUN_DBT_TIMEOUT = 300 #5 min change if more tasks are added to dbt logic
 
-        log = logging.getLogger(__name__)
+    from airflow.providers.http.operators.http import SimpleHttpOperator
+    run_dbt = SimpleHttpOperator(
+        task_id="run_dbt",
+        http_conn_id="fastapi_default",
+        endpoint="/run-dbt",
+        method="POST",
+        response_check=lambda response: response.status_code == 200,
+        extra_options={"timeout": RUN_DBT_TIMEOUT}
+    )
 
-        log.info("Run dbt is run, no logic is implmeted yet")
-
-    #TO DO
-    @task
-    def run_dbt_tests():
-        import logging
-
-        log = logging.getLogger(__name__)
-
-        log.info("run_dbt_tests is run, no logic is implmeted yet")
+    test_dbt = SimpleHttpOperator(
+        task_id="test_dbt",
+        http_conn_id="fastapi_default",
+        endpoint="/test-dbt",
+        method="POST",
+        response_check=lambda response: response.status_code == 200,
+        extra_options={"timeout": RUN_DBT_TIMEOUT}
+    )
 
 
     @task(trigger_rule='all_done')
@@ -115,9 +119,8 @@ def adsb_nightly_batch():
             log.error(f"Vacuum failed: {e}")
     
 
-    validate_bronze() >> run_silver >> run_anomaly_detection >> run_gold >> run_dbt() >> run_dbt_tests() >> vacuum_tables()
+    validate_bronze() >> run_silver >> run_anomaly_detection >> run_gold >> run_dbt >> test_dbt >> vacuum_tables()
 
         
-
 
 adsb_nightly_batch()
