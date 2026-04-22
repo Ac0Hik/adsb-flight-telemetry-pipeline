@@ -16,7 +16,8 @@ A production-grade Lambda architecture pipeline that ingests real-time ADS-B air
 
 ## Architecture
 
-![Architecture](docs/architecture.png)
+![Architecture](docs/ADS-B_Architecture.html)
+![Architecture](docs/ADS-B_Architecture.jpg)
 
 ---
 
@@ -31,6 +32,8 @@ A production-grade Lambda architecture pipeline that ingests real-time ADS-B air
 ---
 
 ## Dashboard
+
+> Example dashboard built on top of the gold and dbt layers using Databricks SQL dashboards.
 
 ![Dashboard](docs/airport_ops.png)
 
