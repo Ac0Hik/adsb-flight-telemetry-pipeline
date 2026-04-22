@@ -1,121 +1,102 @@
 # ✈️ ADS-B Flight Telemetry Pipeline
 
-A production-grade data engineering pipeline that ingests real-time aircraft position data from the OpenSky Network and processes it through a Lambda architecture — a continuous streaming layer for near real-time ingestion, and a nightly batch layer for flight reconstruction, anomaly detection, and analytics aggregation. The serving layer exposes business-ready metrics via dbt models on top of Delta Lake gold tables.
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
+![PySpark](https://img.shields.io/badge/PySpark-3.5-orange?logo=apachespark)
+![Airflow](https://img.shields.io/badge/Airflow-2.9-017CEE?logo=apacheairflow)
+![dbt](https://img.shields.io/badge/dbt-1.11-FF694B?logo=dbt)
+![Databricks](https://img.shields.io/badge/Databricks-Free%20Edition-red?logo=databricks)
+![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?logo=terraform)
+![Delta Lake](https://img.shields.io/badge/Delta%20Lake-3.1-003366)
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions)
+![Cost](https://img.shields.io/badge/Cost-%240-brightgreen)
 
-Built entirely on free infrastructure: Databricks Free Edition for Delta Lake storage and serverless SQL, Apache Airflow running locally via Docker, and OpenSky Network for live ADS-B data.
+A production-grade Lambda architecture pipeline that ingests real-time ADS-B aircraft position data from the OpenSky Network, reconstructs logical flights, detects aviation anomalies, and serves business-ready analytics via dbt models and a Databricks dashboard — built entirely on free infrastructure.
 
 ---
 
-## Infrastructure
+## Architecture
 
-All infrastructure is managed as code via Terraform using two providers.
+![Architecture](docs/architecture.png)
 
-**Docker provider** — provisions the full Airflow stack locally:
-- Postgres container as Airflow's metadata database
-- Airflow webserver, scheduler, and init containers
-- Docker network and volumes for DAGs, logs, and Postgres data
-- Credentials and config passed via Terraform variables
+---
 
-**Databricks provider** — provisions storage and jobs on Databricks Free Edition:
-- Secret scope for OpenSky credentials — never hardcoded
-- 4 serverless job definitions for each Spark script
-- Delta tables stored in Databricks Volumes, dbt models served via the serverless SQL warehouse
+## What It Does
 
+- **Ingests** live ADS-B state vectors from 15,000+ aircraft every 60 seconds via PySpark Structured Streaming
+- **Reconstructs** logical flights from raw position snapshots using window functions and geo UDFs
+- **Detects** 5 classes of aviation anomalies — emergency squawks, rapid altitude drops, extreme vertical rates, unusual speeds, and signal gaps
+- **Aggregates** daily airport statistics, carrier performance metrics, and airspace congestion into gold tables
+- **Serves** business-ready analytics via dbt models and a live Databricks SQL dashboard
 
-`terraform apply` spins everything up. `terraform destroy` tears it all down cleanly.
+---
 
-Data Ingestion
-OpenSky API client (spark/utils/opensky_client.py) — a lightweight wrapper around the OpenSky REST API:
+## Dashboard
 
-fetch_states() — polls https://opensky-network.org/api/states/all with optional bounding box, handles errors gracefully
-parse_states() — maps raw state vectors to typed dicts with named fields, strips callsign whitespace, adds ingested_at UTC timestamp
+![Dashboard](docs/airport_ops.png)
 
-Supports authenticated requests (4,000 calls/day) and anonymous fallback (400/day).
+---
 
-## Streaming Ingestion
+## Quick Start
 
-**PySpark Structured Streaming** (`spark/jobs/01_stream_ingest.py`) — continuously polls the OpenSky API every 60 seconds and writes raw ADS-B state vectors to a local Delta table. This is the only part of the pipeline that runs locally — all downstream transformation and serving layers run on Databricks.
+> Requires: Python 3.10, Terraform, Docker Desktop, Databricks Free Edition account, Git Bash
 
-- Rate source trigger fires every 60 seconds, calling `foreachBatch` to fetch and ingest live data
-- Full schema explicitly defined (check the official docs)
-- Partitioned by `ingest_date` and `ingest_hour` for efficient downstream querying
-- Checkpoint location ensures the job recovers from failures without duplicate records
-- Produces ~11,000 aircraft position records per batch (European airspace)
+```bash
+git clone https://github.com/your-username/adsb-flight-telemetry-pipeline.git
+cd adsb-flight-telemetry-pipeline
+```
 
-Delta table written to `data/delta/bronze/live_states`. The nightly batch pipeline automatically uploads it to Databricks Volumes via the local REST API before triggering the silver transformation.
- 
-> **Note:** Part of the pipeline [stream_ingest] runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
+### Option A — Automated
+```bash
+chmod +x setup.sh
+./setup.sh
+```
 
-## Silver Layer
+### Option B — Manual
+```bash
+# 1. Install Python dependencies
+pip install -r requirements.txt
 
-**Flight reconstruction** (`spark/notebooks/03_silver_flights.ipynb`) — runs on Databricks, reads bronze Delta table from Volumes and reconstructs logical flights from raw ADS-B snapshots.
+# 2. Configure credentials
+cp terraform/terraform.tfvars.example terraform/terraform.tfvars
+# Fill in your Databricks token, OpenSky credentials, and Airflow secrets
 
-- Deduplicates on `(icao24, api_timestamp)` and drops null coordinates
-- Detects flight segments using window functions — new flight on takeoff or signal gap > 600 seconds
-- Aggregates to one row per flight with departure/arrival timestamps, altitude, speed, and position metrics
-- Applies geo UDFs to identify origin/destination airports and estimate flight distance
-- Filters noise — flights shorter than 5 minutes or fewer than 10 state reports excluded
-- Writes to silver Volumes via Delta MERGE — idempotent, safe to re-run
+# 3. Spin up infrastructure
+cd terraform && terraform init && terraform apply && cd ..
 
-Silver table registered as `workspace.default.silver_flights`.
+# 4. Start the local REST API (keep running)
+uvicorn api.main:app --port 8000 --reload
 
-> See `spark/NOTES.md` for known limitations and future improvements.
+# 5. Start the streaming job (keep running)
+python -m spark.jobs.01_stream_ingest
 
+# 6. Add FastAPI connection in Airflow UI
+# http://localhost:8080 → Admin → Connections
+# Conn ID: fastapi_default | Type: HTTP | Host: http://host.docker.internal | Port: 8000
 
-**Anomaly detection** is the process of identifying aircraft behaviour that deviates from what is expected during normal flight operations. In aviation, anomalies can indicate emergencies, equipment failures, or safety-critical situations that require immediate attention from air traffic control.
+# 7. Trigger the nightly batch manually or wait for 2am UTC
+```
+---
 
-**Anomaly detection** (`spark/notebooks/04_anomaly_detect.ipynb`) — runs on Databricks, reads bronze Delta table from Volumes and applies 5 detection rules across all state vectors. Anomaly detection identifies aircraft behaviour that deviates from normal flight operations — flagging emergencies, equipment failures, and safety-critical situations that require attention from air traffic control.
+## Detailed Documentation
 
-- `EMERGENCY_SQUAWK` — transponder code 7700 (general emergency), 7600 (radio failure), or 7500 (hijack in progress). Severity: CRITICAL
-- `RAPID_ALTITUDE_DROP` — altitude drops more than 500m between consecutive states while airborne above 1000m. Severity: HIGH
-- `EXTREME_VERTICAL_RATE` — climb or descent rate exceeds 25 m/s while airborne. Severity: CRITICAL if above 40 m/s, HIGH otherwise
-- `UNUSUAL_SPEED` — velocity exceeds 350 m/s, or falls below 50 m/s at altitude above 6000m while airborne. Severity: MEDIUM
-- `SIGNAL_GAP` — same aircraft reappears after a 5–60 minute gap while still airborne. Severity: MEDIUM
+| Document | Contents |
+|---|---|
+| [`docs/DETAILS.md`](docs/DETAILS.md) | Full technical walkthrough |
+| [`spark/NOTES.md`](spark/NOTES.md) | Segmentation limitations, mock data rationale, future improvements |
+| [`airflow/NOTES.md`](airflow/NOTES.md) | Orchestration constraints, FastAPI bridge setup |
+| [`api/README.md`](api/README.md) | REST API endpoints, OS compatibility notes |
 
-Each detected event is written as a row with the aircraft state, anomaly type, severity, and a human-readable description of the event.
+---
 
-Anomaly table registered as `workspace.default.silver_anomalies`.
+## Stack
 
-## Gold Layer
-
-**Gold aggregates** (`spark/notebooks/05_gold_aggregates.ipynb`) — runs on Databricks, reads silver flights and bronze states to build three business-ready analytics tables.
-
-- `daily_airport_stats` — one row per airport per day with departures, arrivals, total movements, average flight duration, distance, cruise altitude, speed, and unique aircraft count
-- `carrier_performance` — one row per carrier per day with flight count, average metrics, and an efficiency score. Only carriers with 3+ flights on that day are included. Carrier code extracted from the first 3 characters of the callsign
-- `airspace_congestion` — one row per 1-degree lat/lon grid cell per hour with unique aircraft count, average altitude, average speed, and congestion level (HIGH > 50 aircraft, MEDIUM > 20, LOW otherwise). 
-
-Gold tables registered as `workspace.default.daily_airport_stats`, `workspace.default.carrier_performance` and `workspace.default.airspace_congestion`.
-
-## Orchestration
-
-All pipeline orchestration is managed by Apache Airflow 2.9 running locally via Docker. Two DAGs coordinate the full pipeline.
-
-**`adsb_streaming_monitor`** — runs every 10 minutes. Checks if the local streaming job is writing fresh data by querying local Delta files via the REST API. Branches to `stream_ok` if healthy, or `restart_stream` if stalled. The `restart_stream` task calls the REST API to kill and restart the streaming process. See `airflow/NOTES.md` for known limitations.
-
-**`adsb_nightly_batch`** — runs at 2am UTC daily. Orchestrates the full batch pipeline in sequence:
-- Validates yesterday's bronze partition has sufficient data
-- Uploads local bronze Delta table to Databricks Volumes via REST API
-- Triggers silver flight reconstruction notebook on Databricks and waits for completion
-- Triggers anomaly detection notebook on Databricks and waits for completion
-- Triggers gold aggregates notebook on Databricks and waits for completion
-- Runs dbt models and tests via REST API
-- Vacuums bronze, silver/flights and silver/anomalies Delta tables with 168 hour retention
-
-All Databricks job IDs and connection credentials are injected via Terraform — nothing hardcoded in the DAG code.
-
-## Local REST API
-
-A lightweight FastAPI app (`api/main.py`) running on the host machine bridges Airflow (Docker) to local processes — enabling dbt execution, bronze uploads, and stream restarts from within the pipeline. See `api/README.md` for setup and endpoint details.
-
-> **Note:** This is a dev/portfolio workaround for a real architectural constraint. In production with a paid Databricks account, everything would run on the Databricks platform and this API would be unnecessary.
-
-
-## Serving Layer
-
-**dbt** (`dbt/models/marts/`) — runs on the Databricks SQL warehouse, reads from gold and silver Unity Catalog tables and exposes two business-ready models tagged `adsb`.
-
-- `fct_airport_daily` — extends `daily_airport_stats` with a 7-day rolling average of total movements and a day-over-day change metric.
-- `fct_anomaly_summary` — aggregates `silver_anomalies` by detection date, anomaly type, and severity. Adds a `high_alert_day` flag — true if any CRITICAL anomaly was detected that day
-
-Run models: `dbt run --select tag:adsb`
-Run tests: `dbt test --select tag:adsb`
+| Layer | Technology |
+|---|---|
+| Ingestion | PySpark Structured Streaming, OpenSky Network API |
+| Storage | Delta Lake, Databricks Unity Catalog Volumes |
+| Transformation | PySpark, Databricks Notebooks, Databricks Jobs |
+| Orchestration | Apache Airflow 2.9 (Docker), FastAPI bridge |
+| Serving | dbt 1.11, Databricks SQL Warehouse |
+| Infrastructure | Terraform (Docker + Databricks providers) |
+| CI/CD | GitHub Actions |
+| Cost | $0 |

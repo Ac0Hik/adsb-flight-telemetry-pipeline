@@ -1,0 +1,18 @@
+#postgres
+postgres_password      = ""
+
+#airflow
+airflow_admin_password = ""
+fernet_key             = ""
+
+#databricks
+databricks_host        = ""
+databricks_airflow_host = ""
+databricks_sql_http_path = ""
+databricks_token       = ""
+
+databricks_workspace_user_path = ""
+
+#opensky
+opensky_user       = ""
+opensky_pass       = ""

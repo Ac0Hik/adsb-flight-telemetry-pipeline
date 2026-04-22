@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>ADS-B Flight Telemetry Pipeline — Architecture</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0a1220; min-height: 100%; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    color: #cfe3f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .wrap { width: min(1820px, 100%); }
+  svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<svg viewBox="0 0 1820 1140" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ADS-B Flight Telemetry Pipeline architecture diagram">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="75%">
+      <stop offset="0%" stop-color="#0f1c30"/>
+      <stop offset="100%" stop-color="#070d18"/>
+    </radialGradient>
+
+    <linearGradient id="localFill" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0e2033" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#0b1826" stop-opacity="0.95"/>
+    </linearGradient>
+    <linearGradient id="cloudFill" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b2430" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#081a23" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <linearGradient id="bronzeTint" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#8c5a2a" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#8c5a2a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="silverTint" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#9fb4c2" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#9fb4c2" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="goldTint" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#d4a64a" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#d4a64a" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Arrow markers: orient auto (not auto-start-reverse) so arrowhead only renders at marker-end -->
+    <marker id="arrowData" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5ac8e6"/>
+    </marker>
+    <marker id="arrowCtrl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f0a35a"/>
+    </marker>
+    <marker id="arrowMon" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b48bd8"/>
+    </marker>
+
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="2" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Rounded background pill for labels that sit near arrows -->
+    <filter id="labelBg" x="-5%" y="-5%" width="110%" height="110%">
+      <feFlood flood-color="#0a1220" flood-opacity="0.85"/>
+      <feComposite in="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1820" height="1140" fill="url(#bgGrad)"/>
+
+  <!-- Subtle grid -->
+  <g opacity="0.07" stroke="#5ac8e6" stroke-width="0.5">
+    <path d="M0 140 H1820 M0 260 H1820 M0 380 H1820 M0 500 H1820 M0 620 H1820 M0 740 H1820 M0 860 H1820 M0 980 H1820"/>
+    <path d="M240 0 V1140 M480 0 V1140 M720 0 V1140 M960 0 V1140 M1200 0 V1140 M1440 0 V1140 M1680 0 V1140"/>
+  </g>
+
+  <!-- Title -->
+  <g>
+    <text x="40" y="54" fill="#eaf4fb" font-size="26" font-weight="700" letter-spacing="0.5">ADS-B Flight Telemetry Pipeline</text>
+    <text x="40" y="80" fill="#7fa3ba" font-size="13" letter-spacing="2">LAMBDA ARCHITECTURE · LOCAL INGEST · DATABRICKS PROCESSING</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(1230, 34)" font-size="12" fill="#a9c3d4">
+    <rect x="-10" y="-16" width="560" height="62" rx="8" fill="#0d1a2a" stroke="#1d3044"/>
+    <g transform="translate(4, 6)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#5ac8e6" stroke-width="2" marker-end="url(#arrowData)"/>
+      <text x="38" y="4">Data flow</text>
+    </g>
+    <g transform="translate(150, 6)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#f0a35a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+      <text x="38" y="4">Orchestration</text>
+    </g>
+    <g transform="translate(320, 6)">
+      <line x1="0" y1="0" x2="30" y2="0" stroke="#b48bd8" stroke-width="2" stroke-dasharray="2 4" marker-end="url(#arrowMon)"/>
+      <text x="38" y="4">Monitoring</text>
+    </g>
+    <g transform="translate(4, 32)">
+      <rect x="0" y="-10" width="16" height="16" rx="3" fill="#1d3044" stroke="#3a5974"/>
+      <text x="24" y="3">Service</text>
+      <rect x="110" y="-10" width="16" height="16" rx="3" fill="#122536" stroke="#d4a64a"/>
+      <text x="134" y="3">Data asset</text>
+    </g>
+  </g>
+
+  <!-- =========================== LOCAL ZONE =========================== -->
+  <g>
+    <rect x="40" y="120" width="680" height="960" rx="16" fill="url(#localFill)" stroke="#23435e" stroke-width="1.5"/>
+    <g>
+      <circle cx="70" cy="152" r="6" fill="#5ac8e6"/>
+      <text x="86" y="157" fill="#eaf4fb" font-size="16" font-weight="700" letter-spacing="3">LOCAL MACHINE</text>
+      <text x="86" y="176" fill="#6f91a8" font-size="11" letter-spacing="1.5">INGEST · BRONZE · ORCHESTRATION</text>
+    </g>
+
+    <!-- OpenSky API -->
+    <g transform="translate(80, 210)" filter="url(#softShadow)">
+      <rect width="240" height="96" rx="10" fill="#12263a" stroke="#3a5974"/>
+      <circle cx="28" cy="32" r="14" fill="#0a1a28" stroke="#5ac8e6"/>
+      <path d="M22 32 h12 M28 26 v12" stroke="#5ac8e6" stroke-width="1.6"/>
+      <text x="54" y="30" fill="#cfe3f3" font-size="13" font-weight="700">OpenSky Network</text>
+      <text x="54" y="48" fill="#7fa3ba" font-size="11">Public ADS-B API</text>
+      <text x="14" y="82" fill="#5ac8e6" font-size="10" letter-spacing="1.5">SOURCE · EXTERNAL</text>
+    </g>
+
+    <!-- PySpark Structured Streaming -->
+    <g transform="translate(380, 210)" filter="url(#softShadow)">
+      <rect width="300" height="96" rx="10" fill="#12263a" stroke="#3a5974"/>
+      <rect x="14" y="18" width="28" height="28" rx="4" fill="#0a1a28" stroke="#5ac8e6"/>
+      <path d="M20 32 l6 -6 l4 4 l6 -10" stroke="#5ac8e6" stroke-width="1.6" fill="none"/>
+      <text x="54" y="30" fill="#cfe3f3" font-size="13" font-weight="700">PySpark Structured Streaming</text>
+      <text x="54" y="48" fill="#7fa3ba" font-size="11">Micro-batch · 60s trigger · JSON→Delta</text>
+      <text x="14" y="82" fill="#5ac8e6" font-size="10" letter-spacing="1.5">STREAMING INGEST</text>
+    </g>
+
+    <!-- Local Delta Lake Bronze -->
+    <g transform="translate(380, 360)" filter="url(#softShadow)">
+      <rect width="300" height="108" rx="10" fill="url(#bronzeTint)"/>
+      <rect width="300" height="108" rx="10" fill="#122536" stroke="#b58149" stroke-width="1.3"/>
+      <g transform="translate(18, 22)">
+        <ellipse cx="18" cy="8" rx="16" ry="5" fill="#1d2f42" stroke="#b58149"/>
+        <path d="M2 8 V50 a16 5 0 0 0 32 0 V8" fill="#1d2f42" stroke="#b58149"/>
+        <ellipse cx="18" cy="24" rx="16" ry="5" fill="none" stroke="#b58149" opacity="0.6"/>
+        <ellipse cx="18" cy="40" rx="16" ry="5" fill="none" stroke="#b58149" opacity="0.6"/>
+      </g>
+      <text x="68" y="32" fill="#eaf4fb" font-size="13" font-weight="700">Local Delta Lake</text>
+      <text x="68" y="50" fill="#b58149" font-size="11" font-weight="600" letter-spacing="2">BRONZE</text>
+      <text x="68" y="68" fill="#7fa3ba" font-size="11">Raw state vectors · partitioned by day</text>
+      <text x="14" y="96" fill="#b58149" font-size="10" letter-spacing="1.5">DATA ASSET</text>
+    </g>
+
+    <!-- FastAPI -->
+    <g transform="translate(80, 520)" filter="url(#softShadow)">
+      <rect width="240" height="128" rx="10" fill="#12263a" stroke="#3a5974"/>
+      <rect x="14" y="16" width="28" height="28" rx="4" fill="#0a1a28" stroke="#5ac8e6"/>
+      <path d="M20 24 h16 M20 30 h10 M20 36 h14" stroke="#5ac8e6" stroke-width="1.4"/>
+      <text x="54" y="27" fill="#cfe3f3" font-size="13" font-weight="700">FastAPI</text>
+      <text x="54" y="44" fill="#7fa3ba" font-size="11">REST API on host · :8000</text>
+      <g font-size="10.5" fill="#9fb9ca">
+        <text x="14" y="72">• /upload-bronze · bronze push</text>
+        <text x="14" y="90">• /run-dbt · /streams/*</text>
+        <text x="14" y="108">• /health · /files</text>
+      </g>
+    </g>
+
+    <!-- Airflow -->
+    <g transform="translate(380, 520)" filter="url(#softShadow)">
+      <rect width="300" height="128" rx="10" fill="#12263a" stroke="#3a5974"/>
+      <rect x="10" y="10" width="280" height="108" rx="6" fill="none" stroke="#2f6b8a" stroke-dasharray="4 3" opacity="0.8"/>
+      <text x="280" y="26" text-anchor="end" fill="#2f87a8" font-size="9" letter-spacing="1.5">DOCKER</text>
+      <rect x="22" y="34" width="28" height="28" rx="4" fill="#0a1a28" stroke="#5ac8e6"/>
+      <path d="M28 48 l6 -6 l4 4 l6 -10" stroke="#5ac8e6" stroke-width="1.6" fill="none"/>
+      <text x="62" y="46" fill="#cfe3f3" font-size="13" font-weight="700">Apache Airflow</text>
+      <text x="62" y="63" fill="#7fa3ba" font-size="11">Scheduler · Webserver · Workers</text>
+      <text x="22" y="96" fill="#9fb9ca" font-size="10.5">DAGs: nightly_upload · silver_gold</text>
+      <text x="22" y="112" fill="#9fb9ca" font-size="10.5">        monitor_streams</text>
+    </g>
+
+    <!-- Schedules strip -->
+    <g transform="translate(80, 702)">
+      <rect width="600" height="78" rx="10" fill="#0d1a2a" stroke="#1d3044"/>
+      <text x="18" y="28" fill="#7fa3ba" font-size="11" letter-spacing="2">SCHEDULES</text>
+      <g font-size="11.5" fill="#cfe3f3">
+        <circle cx="22" cy="54" r="3" fill="#f0a35a"/>
+        <text x="32" y="58">Nightly 02:00 — Bronze upload</text>
+        <circle cx="250" cy="54" r="3" fill="#f0a35a"/>
+        <text x="260" y="58">Daily — Silver &amp; Gold</text>
+        <circle cx="430" cy="54" r="3" fill="#b48bd8"/>
+        <text x="440" y="58">Every 10 min — Stream monitor</text>
+      </g>
+    </g>
+
+    <!-- Host footer note -->
+    <g transform="translate(80, 820)">
+      <text fill="#6f91a8" font-size="11" letter-spacing="1.5">HOST PROCESSES</text>
+      <line x1="0" y1="10" x2="600" y2="10" stroke="#23435e" stroke-width="1"/>
+      <g font-size="11" fill="#8aacc0">
+        <text x="0" y="34">Python 3.11 · Spark 3.5 · Delta 3.2 · Docker Desktop · Uvicorn</text>
+        <text x="0" y="56">All data stays on-prem until the nightly upload window.</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- =========================== BOUNDARY =========================== -->
+  <g transform="translate(740, 120)">
+    <line x1="0" y1="0" x2="0" y2="960" stroke="#2a4a66" stroke-width="1" stroke-dasharray="3 6"/>
+    <g transform="translate(-42, 470)">
+      <rect x="0" y="0" width="84" height="36" rx="18" fill="#0d1a2a" stroke="#2a4a66"/>
+      <text x="42" y="23" text-anchor="middle" fill="#7fa3ba" font-size="11" letter-spacing="2">BOUNDARY</text>
+    </g>
+    <g transform="translate(0, 32)" fill="#5c7b92" font-size="10" letter-spacing="2">
+      <text x="-60">ON-PREM</text>
+      <text x="14">CLOUD</text>
+    </g>
+  </g>
+
+  <!-- =========================== CLOUD ZONE =========================== -->
+  <g>
+    <rect x="760" y="120" width="1020" height="960" rx="16" fill="url(#cloudFill)" stroke="#1e5062" stroke-width="1.5"/>
+    <g>
+      <circle cx="790" cy="152" r="6" fill="#2dd4bf"/>
+      <text x="806" y="157" fill="#eaf4fb" font-size="16" font-weight="700" letter-spacing="3">DATABRICKS</text>
+      <text x="806" y="176" fill="#6f9fa8" font-size="11" letter-spacing="1.5">MEDALLION · JOBS · SQL WAREHOUSE · DASHBOARDS</text>
+    </g>
+
+    <!-- Layer bands -->
+    <g font-size="11" letter-spacing="2" fill="#6f9fa8">
+      <text x="780" y="222">BRONZE</text>
+      <text x="780" y="402">SILVER</text>
+      <text x="780" y="642">GOLD</text>
+      <text x="780" y="872">SERVING</text>
+    </g>
+    <g stroke="#1e5062" stroke-width="0.8" opacity="0.45">
+      <line x1="780" y1="232" x2="1760" y2="232"/>
+      <line x1="780" y1="412" x2="1760" y2="412"/>
+      <line x1="780" y1="652" x2="1760" y2="652"/>
+      <line x1="780" y1="882" x2="1760" y2="882"/>
+    </g>
+
+    <!-- Databricks Volumes (Bronze) -->
+    <g transform="translate(860, 250)" filter="url(#softShadow)">
+      <rect width="320" height="108" rx="10" fill="url(#bronzeTint)"/>
+      <rect width="320" height="108" rx="10" fill="#122536" stroke="#b58149" stroke-width="1.3"/>
+      <g transform="translate(18, 22)">
+        <ellipse cx="18" cy="8" rx="16" ry="5" fill="#1d2f42" stroke="#b58149"/>
+        <path d="M2 8 V60 a16 5 0 0 0 32 0 V8" fill="#1d2f42" stroke="#b58149"/>
+        <ellipse cx="18" cy="26" rx="16" ry="5" fill="none" stroke="#b58149" opacity="0.6"/>
+        <ellipse cx="18" cy="44" rx="16" ry="5" fill="none" stroke="#b58149" opacity="0.6"/>
+      </g>
+      <text x="72" y="34" fill="#eaf4fb" font-size="14" font-weight="700">Databricks Volumes</text>
+      <text x="72" y="52" fill="#b58149" font-size="11" font-weight="600" letter-spacing="2">BRONZE</text>
+      <text x="72" y="72" fill="#7fa3ba" font-size="11">Uploaded Delta files · Unity Catalog</text>
+      <text x="72" y="90" fill="#8aacc0" font-size="10.5">catalog.adsb.bronze_volumes</text>
+    </g>
+
+    <!-- Silver: Flight Reconstruction -->
+    <g transform="translate(820, 432)" filter="url(#softShadow)">
+      <rect width="300" height="180" rx="10" fill="url(#silverTint)"/>
+      <rect width="300" height="180" rx="10" fill="#122b36" stroke="#9fb4c2" stroke-width="1.1"/>
+      <g transform="translate(18, 18)">
+        <rect width="28" height="28" rx="4" fill="#0a1a28" stroke="#2dd4bf"/>
+        <path d="M4 22 l6 -6 l6 6 l6 -10 l4 6" stroke="#2dd4bf" stroke-width="1.4" fill="none"/>
+      </g>
+      <text x="58" y="32" fill="#eaf4fb" font-size="13" font-weight="700">Flight Reconstruction</text>
+      <text x="58" y="50" fill="#9fb4c2" font-size="10.5" letter-spacing="2">SILVER · DATABRICKS JOB</text>
+      <g font-size="11" fill="#9fb9ca">
+        <text x="18" y="90">• Session state vectors by icao24</text>
+        <text x="18" y="110">• Reconstruct flight legs · dep/arr</text>
+        <text x="18" y="130">• Great-circle + dwell windowing</text>
+        <text x="18" y="158">→ silver.flights_reconstructed</text>
+      </g>
+    </g>
+
+    <!-- Silver: Anomaly Detection -->
+    <g transform="translate(1160, 432)" filter="url(#softShadow)">
+      <rect width="300" height="180" rx="10" fill="url(#silverTint)"/>
+      <rect width="300" height="180" rx="10" fill="#122b36" stroke="#9fb4c2" stroke-width="1.1"/>
+      <g transform="translate(18, 18)">
+        <rect width="28" height="28" rx="4" fill="#0a1a28" stroke="#2dd4bf"/>
+        <path d="M4 20 l4 -6 l4 10 l4 -14 l4 10 l4 -6 l4 6" stroke="#2dd4bf" stroke-width="1.3" fill="none"/>
+      </g>
+      <text x="58" y="32" fill="#eaf4fb" font-size="13" font-weight="700">Anomaly Detection</text>
+      <text x="58" y="50" fill="#9fb4c2" font-size="10.5" letter-spacing="2">SILVER · DATABRICKS JOB</text>
+      <g font-size="11" fill="#9fb9ca">
+        <text x="18" y="90">• Altitude &amp; velocity outliers</text>
+        <text x="18" y="110">• Heading-break / holding loops</text>
+        <text x="18" y="130">• Squawk 7500/7600/7700 flags</text>
+        <text x="18" y="158">→ silver.anomalies</text>
+      </g>
+    </g>
+
+    <!-- Gold Jobs -->
+    <g transform="translate(820, 672)" filter="url(#softShadow)">
+      <rect width="640" height="170" rx="10" fill="url(#goldTint)"/>
+      <rect width="640" height="170" rx="10" fill="#1a2330" stroke="#d4a64a" stroke-width="1.2"/>
+      <g transform="translate(18, 18)">
+        <rect width="28" height="28" rx="4" fill="#0a1a28" stroke="#d4a64a"/>
+        <path d="M6 20 L14 8 L22 20 Z" fill="none" stroke="#d4a64a" stroke-width="1.4"/>
+      </g>
+      <text x="58" y="32" fill="#eaf4fb" font-size="13" font-weight="700">Gold Aggregations</text>
+      <text x="58" y="50" fill="#d4a64a" font-size="10.5" letter-spacing="2">GOLD · DATABRICKS JOB</text>
+
+      <g font-size="11" fill="#cfe3f3">
+        <g transform="translate(18, 78)">
+          <rect width="194" height="76" rx="6" fill="#0f1c2a" stroke="#2d4252"/>
+          <text x="12" y="24" font-weight="700" fill="#eaf4fb">Airport Stats</text>
+          <text x="12" y="44" fill="#8aacc0" font-size="10.5">arrivals · departures · delays</text>
+          <text x="12" y="62" fill="#d4a64a" font-size="10">gold.airport_stats</text>
+        </g>
+        <g transform="translate(222, 78)">
+          <rect width="194" height="76" rx="6" fill="#0f1c2a" stroke="#2d4252"/>
+          <text x="12" y="24" font-weight="700" fill="#eaf4fb">Carrier Performance</text>
+          <text x="12" y="44" fill="#8aacc0" font-size="10.5">on-time · utilization · fleet</text>
+          <text x="12" y="62" fill="#d4a64a" font-size="10">gold.carrier_performance</text>
+        </g>
+        <g transform="translate(426, 78)">
+          <rect width="196" height="76" rx="6" fill="#0f1c2a" stroke="#2d4252"/>
+          <text x="12" y="24" font-weight="700" fill="#eaf4fb">Airspace Congestion</text>
+          <text x="12" y="44" fill="#8aacc0" font-size="10.5">sector density · heatmaps</text>
+          <text x="12" y="62" fill="#d4a64a" font-size="10">gold.airspace_congestion</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- dbt on SQL Warehouse -->
+    <g transform="translate(1500, 432)" filter="url(#softShadow)">
+      <rect width="260" height="410" rx="10" fill="#12263a" stroke="#3a5974"/>
+      <text x="20" y="30" fill="#eaf4fb" font-size="13" font-weight="700">dbt</text>
+      <text x="20" y="48" fill="#7fa3ba" font-size="11">on Databricks SQL Warehouse</text>
+      <line x1="20" y1="60" x2="240" y2="60" stroke="#23435e"/>
+
+      <g transform="translate(20, 80)">
+        <rect width="220" height="74" rx="6" fill="#0f1c2a" stroke="#d4a64a" opacity="0.95"/>
+        <text x="12" y="24" fill="#eaf4fb" font-size="12" font-weight="700">fct_airport_daily</text>
+        <text x="12" y="44" fill="#8aacc0" font-size="10.5">daily rollups per ICAO airport</text>
+        <text x="12" y="62" fill="#d4a64a" font-size="10" letter-spacing="1.5">MART · GOLD</text>
+      </g>
+
+      <g transform="translate(20, 170)">
+        <rect width="220" height="74" rx="6" fill="#0f1c2a" stroke="#d4a64a" opacity="0.95"/>
+        <text x="12" y="24" fill="#eaf4fb" font-size="12" font-weight="700">fct_anomaly_summary</text>
+        <text x="12" y="44" fill="#8aacc0" font-size="10.5">anomalies by route · carrier</text>
+        <text x="12" y="62" fill="#d4a64a" font-size="10" letter-spacing="1.5">MART · GOLD</text>
+      </g>
+
+      <g transform="translate(20, 272)" font-size="10.5" fill="#8aacc0">
+        <text x="0" y="0" fill="#7fa3ba" letter-spacing="1.5">PIPELINE</text>
+        <text x="0" y="20">• staging → intermediate → marts</text>
+        <text x="0" y="38">• tests · docs · exposures</text>
+        <text x="0" y="56">• triggered by FastAPI /run-dbt</text>
+      </g>
+
+      <text x="20" y="390" fill="#2f87a8" font-size="10" letter-spacing="1.5">SQL WAREHOUSE · SERVERLESS</text>
+    </g>
+
+    <!-- Databricks Dashboard -->
+    <g transform="translate(820, 902)" filter="url(#softShadow)">
+      <rect width="920" height="140" rx="10" fill="#12263a" stroke="#2dd4bf" stroke-width="1.2"/>
+      <g transform="translate(22, 26)">
+        <rect width="48" height="48" rx="6" fill="#0a1a28" stroke="#2dd4bf"/>
+        <rect x="6" y="10" width="10" height="30" fill="#2dd4bf" opacity="0.7"/>
+        <rect x="20" y="18" width="10" height="22" fill="#2dd4bf" opacity="0.5"/>
+        <rect x="34" y="6" width="8" height="34" fill="#2dd4bf" opacity="0.9"/>
+      </g>
+      <text x="88" y="44" fill="#eaf4fb" font-size="15" font-weight="700">Databricks Dashboard</text>
+      <text x="88" y="64" fill="#2dd4bf" font-size="11" letter-spacing="2">SERVING LAYER</text>
+      <g font-size="11" fill="#9fb9ca">
+        <text x="88" y="88">Airport ops · carrier OTP · airspace heatmap · anomaly feed</text>
+        <text x="88" y="108">Backed by fct_airport_daily, fct_anomaly_summary, gold.*</text>
+      </g>
+      <text x="898" y="128" text-anchor="end" fill="#6f9fa8" font-size="10" letter-spacing="1.5">CONSUMERS · OPS · ANALYSTS</text>
+    </g>
+  </g>
+
+  <!--
+    =========================== CONNECTIONS ===========================
+    Arrow direction audit (source at path start, destination at marker-end):
+      OpenSky(320,258) -> PySpark(380,258)                          data
+      PySpark(530,306) -> Local Bronze(530,360)                     data
+      Local Bronze(380,414) -> FastAPI(320,560)                     data (bronze read for upload)
+      FastAPI(320,560) -> Databricks Volumes(860,296)               data (nightly upload, crosses boundary)
+      Airflow(380,584) -> FastAPI(320,584)                          orchestration
+      Airflow(680,560) -> Silver Flight(820,460)                    orchestration (trigger job)
+      Airflow(680,584) -> Silver Anomaly(1160,460)                  orchestration (trigger job)
+      Airflow(680,620) -> Gold(820,708)                             orchestration (trigger job)
+      FastAPI(320,540) -> dbt(1500,460) (curve over boundary top)   orchestration (/run-dbt)
+      Volumes(1020,358) -> Silver Flight(970,432)                   data
+      Volumes(1100,358) -> Silver Anomaly(1310,432)                 data
+      Silver Flight(970,612) -> Gold(970,672)                       data
+      Silver Anomaly(1310,612) -> Gold(1310,672)                    data
+      Gold(1460,750) -> dbt(1500,540)                               data (gold feeds dbt marts)
+      Gold(1140,842) -> Dashboard(1140,902)                         data
+      dbt(1630,842) -> Dashboard(1630,902)                          data
+      Airflow(530,648) -> Local Bronze(530,702 via monitor region)  monitoring
+  -->
+  <g fill="none" stroke-width="2">
+    <!-- OpenSky -> PySpark -->
+    <path d="M320 258 L380 258" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- PySpark -> Local Bronze -->
+    <path d="M530 306 L530 360" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- Local Bronze -> FastAPI (bronze read for upload) -->
+    <path d="M380 440 C 280 440, 240 480, 200 520" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- FastAPI -> Databricks Volumes (nightly upload, crosses boundary) -->
+    <path d="M320 540 C 600 540, 660 304, 860 304" stroke="#5ac8e6" stroke-width="2.4" marker-end="url(#arrowData)"/>
+    <g font-size="11">
+      <rect x="496" y="478" width="232" height="38" rx="6" fill="#0a1220" stroke="#1d3044" opacity="0.95"/>
+      <text x="612" y="494" text-anchor="middle" fill="#9fd4e6">nightly bronze upload</text>
+      <text x="612" y="510" text-anchor="middle" fill="#6f91a8" font-size="10">Delta files · POST /upload-bronze</text>
+    </g>
+
+    <!-- Airflow -> FastAPI (dbt + stream mgmt) -->
+    <path d="M380 584 L320 584" stroke="#f0a35a" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+    <g>
+      <rect x="316" y="492" width="70" height="20" rx="4" fill="#0a1220" opacity="0.9"/>
+      <text x="351" y="506" text-anchor="middle" font-size="10.5" fill="#f0a35a">run-dbt · streams</text>
+    </g>
+
+    <!-- Airflow -> Silver Flight (trigger) -->
+    <path d="M680 556 C 740 556, 780 500, 820 480" stroke="#f0a35a" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+    <!-- Airflow -> Silver Anomaly (trigger) -->
+    <path d="M680 584 C 900 584, 980 480, 1160 480" stroke="#f0a35a" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+    <!-- Airflow -> Gold (trigger) -->
+    <path d="M680 620 C 760 680, 800 690, 820 708" stroke="#f0a35a" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+    <g>
+      <rect x="748" y="386" width="210" height="20" rx="4" fill="#0a1220" opacity="0.95"/>
+      <text x="853" y="400" text-anchor="middle" font-size="10.5" fill="#f0a35a">triggers Databricks Jobs · REST</text>
+    </g>
+
+    <!-- FastAPI -> dbt (curve across top of cloud zone) -->
+    <path d="M320 524 C 700 380, 1280 380, 1500 448" stroke="#f0a35a" stroke-dasharray="6 4" marker-end="url(#arrowCtrl)"/>
+    <g>
+      <rect x="1118" y="372" width="264" height="20" rx="4" fill="#0a1220" opacity="0.9"/>
+      <text x="1250" y="386" text-anchor="middle" font-size="10.5" fill="#f0a35a">FastAPI → dbt run on SQL Warehouse</text>
+    </g>
+
+    <!-- Bronze volumes -> Silver Flight -->
+    <path d="M970 358 L970 432" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+    <!-- Bronze volumes -> Silver Anomaly -->
+    <path d="M1100 358 C 1100 388, 1310 388, 1310 432" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- Silver -> Gold -->
+    <path d="M970 612 L970 672" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+    <path d="M1310 612 C 1310 632, 1220 650, 1220 672" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- Gold -> dbt marts (right edge of Gold up to dbt) -->
+    <path d="M1460 740 C 1490 740, 1490 560, 1500 560" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- Gold -> Dashboard -->
+    <path d="M1140 842 L1140 902" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+    <!-- dbt marts -> Dashboard -->
+    <path d="M1630 842 L1630 902" stroke="#5ac8e6" marker-end="url(#arrowData)"/>
+
+    <!-- Monitoring: Airflow -> Local Bronze (stream monitor checks bronze health) -->
+    <path d="M530 648 C 530 664, 470 670, 470 702" stroke="#b48bd8" stroke-dasharray="2 4" marker-end="url(#arrowMon)"/>
+    <!-- Monitoring label tucked in the open gap between Airflow and Schedules -->
+    <g>
+      <rect x="96" y="666" width="286" height="20" rx="4" fill="#0a1220" opacity="0.9"/>
+      <text x="110" y="680" font-size="10.5" fill="#b48bd8">stream monitor · 10 min · check Delta files</text>
+    </g>
+  </g>
+
+  <!-- Footer stamp -->
+  <g transform="translate(40, 1108)" font-size="10.5" fill="#4f6f85" letter-spacing="1.5">
+    <text>v1 · LAMBDA · MEDALLION (BRONZE → SILVER → GOLD) · UNITY CATALOG</text>
+    <text x="1740" text-anchor="end">ADS-B TELEMETRY · 2026</text>
+  </g>
+</svg>
+</div>
+</body>
+</html>
