@@ -1,6 +1,8 @@
 from airflow.decorators import dag, task
 from datetime import datetime, timedelta
-
+from airflow.providers.http.operators.http import SimpleHttpOperator
+from airflow.providers.databricks.operators.databricks import DatabricksRunNowOperator
+from airflow.models import Variable
 
 default_args  = {
     "depends_on_past": False,
@@ -19,6 +21,16 @@ default_args  = {
     default_args=default_args
 )
 def adsb_nightly_batch():
+
+
+    upload_bronze = SimpleHttpOperator(
+        task_id="upload_bronze",
+        http_conn_id="fastapi_default",
+        endpoint="/upload-bronze",
+        method="POST",
+        response_check=lambda response: response.status_code == 200,
+        extra_options={"timeout": 1200}  # 20 min — upload can take a while still needs testing
+    )
 
     @task
     def validate_bronze():
@@ -51,9 +63,6 @@ def adsb_nightly_batch():
         return {"row_count":row_count}
     
 
-    from airflow.providers.databricks.operators.databricks import DatabricksRunNowOperator
-    from airflow.models import Variable
-
     run_silver = DatabricksRunNowOperator(
         task_id='run_silver',
         databricks_conn_id='databricks_default',
@@ -74,7 +83,6 @@ def adsb_nightly_batch():
 
     RUN_DBT_TIMEOUT = 300 #5 min change if more tasks are added to dbt logic
 
-    from airflow.providers.http.operators.http import SimpleHttpOperator
     run_dbt = SimpleHttpOperator(
         task_id="run_dbt",
         http_conn_id="fastapi_default",
@@ -119,7 +127,7 @@ def adsb_nightly_batch():
             log.error(f"Vacuum failed: {e}")
     
 
-    validate_bronze() >> run_silver >> run_anomaly_detection >> run_gold >> run_dbt >> test_dbt >> vacuum_tables()
+    upload_bronze >> validate_bronze() >> run_silver >> run_anomaly_detection >> run_gold >> run_dbt >> test_dbt >> vacuum_tables()
 
         
 

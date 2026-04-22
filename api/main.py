@@ -1,6 +1,7 @@
 # api logic to connect docker containers with local machine (as advised in airflow/NOTES.md)
 from fastapi import FastAPI, HTTPException
 import subprocess
+import psutil
 import logging
 
 
@@ -75,7 +76,27 @@ def upload_bronze():
         })
     return {"status" : "ok"}
  
+
+
 @app.post("/restart-stream")
 def restart_stream():
-    log.warning("restart_stream called but not yet implemented")
-    return {"status": "not implemented", "message": "See airflow/NOTES.md"}
+    STREAM_SCRIPT = "spark/jobs/01_stream_ingest.py"
+    
+    # find and kill existing process
+    for proc in psutil.process_iter(['pid', 'cmdline']):
+        try:
+            if any(STREAM_SCRIPT in arg for arg in proc.info['cmdline'] or []):
+                proc.terminate()
+                proc.wait(timeout=10)
+                log.info(f"Killed stream process {proc.info['pid']}")
+        except (psutil.NoSuchProcess, psutil.TimeoutExpired) as e:
+            log.warning(f"Could not kill process: {e}")
+    
+    # restart in background
+    subprocess.Popen(
+        ["python", "-m", "spark.jobs.01_stream_ingest"],
+        cwd="D:/ADS-B Flight Telemetry Pipeline/adsb-pipeline",
+        creationflags=subprocess.DETACHED_PROCESS
+    )
+    
+    return {"status": "restarted"}
