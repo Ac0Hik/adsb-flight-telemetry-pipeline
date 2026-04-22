@@ -26,28 +26,16 @@ def adsb_streaming_monitor():
 
     @task
     def check_stream_health():
-        from airflow.providers.databricks.hooks.databricks_sql import DatabricksSqlHook
-        from datetime import datetime, timezone
+        from airflow.providers.http.hooks.http import HttpHook
         import logging
-
+        
         log = logging.getLogger(__name__)
-
-        BRONZE_PATH = "/Volumes/workspace/default/adsb_data/bronze/live_states"
-        TASK_TIMEOUT = 300 #999999999
-        query = f"SELECT MAX(ingested_at) as last_ingested FROM delta.`{BRONZE_PATH}`"
+        
         try:
-
-            hook = DatabricksSqlHook(databricks_conn_id='databricks_sql_default')
-            result = hook.get_records(query)
-
-            if not result or result[0][0] is None:
-                return {"healthy": False, "age_seconds": -1}
-
-            last_ingested_dt = datetime.strptime(result[0][0], "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-            age_seconds = int((datetime.now(timezone.utc) - last_ingested_dt).total_seconds())
-
-
-            return {"healthy": age_seconds < TASK_TIMEOUT, "age_seconds": age_seconds}
+            hook = HttpHook(method='GET', http_conn_id='fastapi_default')
+            response = hook.run('/stream-health')
+            result = response.json()
+            return result
         except Exception as e:
             log.error("check_stream_health failed: %s", str(e))
             return {"healthy": False, "age_seconds": -1}

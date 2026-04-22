@@ -8,6 +8,29 @@ import logging
 log = logging.getLogger(__name__)
 app = FastAPI()
 
+@app.get("/stream-health")
+def stream_health():
+    import os
+    from datetime import datetime, timezone
+    
+    BRONZE_PATH = "data/delta/bronze/live_states"
+    THRESHOLD_SECONDS = 300  # 5 minutes
+    
+    # find the most recently modified parquet file
+    latest_time = None
+    for root, dirs, files in os.walk(BRONZE_PATH):
+        for file in files:
+            if file.endswith(".parquet"):
+                mtime = os.path.getmtime(os.path.join(root, file))
+                if latest_time is None or mtime > latest_time:
+                    latest_time = mtime
+    
+    if latest_time is None:
+        return {"healthy": False, "age_seconds": -1}
+    
+    age_seconds = int(datetime.now(timezone.utc).timestamp() - latest_time)
+    return {"healthy": age_seconds < THRESHOLD_SECONDS, "age_seconds": age_seconds}
+
 @app.get("/health")
 def check_health():
     return {

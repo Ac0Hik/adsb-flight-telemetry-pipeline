@@ -6,6 +6,17 @@ Bridges Airflow (Docker) to host processes. Must be started from the project roo
 uvicorn api.main:app --port 8000 --reload
 ```
 
+## Endpoints
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/health` | GET | API liveness check |
+| `/stream-health` | GET | Checks if streaming job is writing fresh local data |
+| `/run-dbt` | POST | Runs `dbt run --select tag:adsb` |
+| `/test-dbt` | POST | Runs `dbt test --select tag:adsb` |
+| `/upload-bronze` | POST | Uploads local bronze Delta table to Databricks Volumes |
+| `/restart-stream` | POST | Kills and restarts the streaming job |
+
 See `airflow/NOTES.md` for Airflow connection setup.
 
 ## Notes

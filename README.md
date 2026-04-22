@@ -33,19 +33,16 @@ parse_states() — maps raw state vectors to typed dicts with named fields, stri
 Supports authenticated requests (4,000 calls/day) and anonymous fallback (400/day).
 
 ## Streaming Ingestion
- 
-**PySpark Structured Streaming** (`spark/jobs/01_stream_ingest.py`) — continuously polls the OpenSky API every 60 seconds and writes raw ADS-B state vectors to a local Delta table.
- 
+
+**PySpark Structured Streaming** (`spark/jobs/01_stream_ingest.py`) — continuously polls the OpenSky API every 60 seconds and writes raw ADS-B state vectors to a local Delta table. This is the only part of the pipeline that runs locally — all downstream transformation and serving layers run on Databricks.
+
 - Rate source trigger fires every 60 seconds, calling `foreachBatch` to fetch and ingest live data
-- Full schema explicitly defined (check the the official docs)
+- Full schema explicitly defined (check the official docs)
 - Partitioned by `ingest_date` and `ingest_hour` for efficient downstream querying
 - Checkpoint location ensures the job recovers from failures without duplicate records
 - Produces ~11,000 aircraft position records per batch (European airspace)
- 
-Delta table written to `data/delta/bronze/live_states` then uploaded to Databricks Volumes:
-```bash
-databricks fs cp -r "data/delta/bronze/live_states" "dbfs:/Volumes/workspace/default/adsb_data/bronze/live_states" --overwrite
-```
+
+Delta table written to `data/delta/bronze/live_states`. The nightly batch pipeline automatically uploads it to Databricks Volumes via the local REST API before triggering the silver transformation.
  
 > **Note:** Part of the pipeline [stream_ingest] runs locally in `local[*]` mode due to Databricks Free Edition no longer supporting classic cluster compute. The architecture is designed for Databricks — switching from local paths to DBFS and from `local[*]` to a Databricks cluster requires changing config values.
 
@@ -93,17 +90,25 @@ Gold tables registered as `workspace.default.daily_airport_stats`, `workspace.de
 
 All pipeline orchestration is managed by Apache Airflow 2.9 running locally via Docker. Two DAGs coordinate the full pipeline.
 
-**`adsb_streaming_monitor`** — runs every 10 minutes. Queries the bronze Delta table on Databricks Volumes to check if the last ingested record is within the last 5 minutes. Branches to `stream_ok` if healthy, or `restart_stream` if stalled. Currently logs a warning on stall — auto-restart is a known limitation documented in `airflow/NOTES.md`.
+**`adsb_streaming_monitor`** — runs every 10 minutes. Checks if the local streaming job is writing fresh data by querying local Delta files via the REST API. Branches to `stream_ok` if healthy, or `restart_stream` if stalled. The `restart_stream` task calls the REST API to kill and restart the streaming process. See `airflow/NOTES.md` for known limitations.
 
 **`adsb_nightly_batch`** — runs at 2am UTC daily. Orchestrates the full batch pipeline in sequence:
-- Validates today's bronze partition has sufficient data (>10,000 rows)
+- Validates yesterday's bronze partition has sufficient data
+- Uploads local bronze Delta table to Databricks Volumes via REST API
 - Triggers silver flight reconstruction notebook on Databricks and waits for completion
-- Triggers anomaly detection notebook on Databricks and waits for completion  
+- Triggers anomaly detection notebook on Databricks and waits for completion
 - Triggers gold aggregates notebook on Databricks and waits for completion
-- dbt models — placeholder, to be implemented
+- Runs dbt models and tests via REST API
 - Vacuums bronze, silver/flights and silver/anomalies Delta tables with 168 hour retention
 
 All Databricks job IDs and connection credentials are injected via Terraform — nothing hardcoded in the DAG code.
+
+## Local REST API
+
+A lightweight FastAPI app (`api/main.py`) running on the host machine bridges Airflow (Docker) to local processes — enabling dbt execution, bronze uploads, and stream restarts from within the pipeline. See `api/README.md` for setup and endpoint details.
+
+> **Note:** This is a dev/portfolio workaround for a real architectural constraint. In production with a paid Databricks account, everything would run on the Databricks platform and this API would be unnecessary.
+
 
 ## Serving Layer
 

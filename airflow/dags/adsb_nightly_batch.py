@@ -40,7 +40,7 @@ def adsb_nightly_batch():
 
         log = logging.getLogger(__name__)
         #threshold is set to 0 for testing 10k for prod
-        ROW_COUNT_THRESHOLD = 0 #10000
+        ROW_COUNT_THRESHOLD =  10000 #0
 
         BRONZE_PATH = "/Volumes/workspace/default/adsb_data/bronze"
         query = f'''SELECT count(*) as rows_count 
