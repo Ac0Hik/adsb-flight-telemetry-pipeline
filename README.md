@@ -16,7 +16,6 @@ A production-grade Lambda architecture pipeline that ingests real-time ADS-B air
 
 ## Architecture
 
-![Architecture](docs/ADS-B_Architecture.html)
 ![Architecture](docs/ADS-B_Architecture.jpg)
 
 ---
